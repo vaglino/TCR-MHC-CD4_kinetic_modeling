@@ -12,4 +12,9 @@ Software requirements are:
 
 The code was tested on Windows 10, in the Matlab 2020a IDE and the VSCode v1.63.2 environment.
 
+Installation instructions:
+1. clone this repo
+2. run analysis scripts in "/TCR-MHC-CD4 modeling/" subfolder. E.g to run adhesion frequency assay modeling, run the script "/TCR-MHC-CD4 modeling/TCR_CD4_MHC_adhesion_freq_fit.jl"
+3. any missing required depedencies will be prompted to be installed after running each script
+
 Datasets used in the analysis are provided in the respective subfolders
