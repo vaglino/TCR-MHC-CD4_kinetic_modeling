@@ -17,4 +17,10 @@ Installation instructions:
 2. run analysis scripts in "/TCR-MHC-CD4 modeling/" subfolder. E.g to run adhesion frequency assay modeling, run the script "/TCR-MHC-CD4 modeling/TCR_CD4_MHC_adhesion_freq_fit.jl"
 3. any missing required depedencies will be prompted to be installed after running each script
 
+Note: a recurring and simple abbreviation system used throughout the software for convenience:
+TCR -> T
+MHC -> M
+CD -> C
+such that, for example, TM and TMC indicate TCR-MHC bimolecular and TCR-MHC-CD4 trimolecular bonds
+
 Datasets used in the analysis are provided in the respective subfolders
