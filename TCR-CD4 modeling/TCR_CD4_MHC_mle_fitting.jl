@@ -1,7 +1,9 @@
 using Revise
 using StatsBase, KernelDensity, Distributions, Measurements
 using DataFrames, Plots, ColorSchemes
-src_dir = "C:/Users/stravaglino3/Documents/TCR-MHC-CD4 models/src/"
+main_dir = "C:/Users/stravaglino3/Documents/TCR-MHC-CD4 modeling for github/"
+
+src_dir = main_dir*"src/"
 includet(src_dir*"models.jl")
 includet(src_dir*"models_dissociation.jl")
 includet(src_dir*"analytical_models.jl")
@@ -11,10 +13,12 @@ includet(src_dir*"mle_fitting.jl")
 includet(src_dir*"mle_plotting.jl")
 using BlackBoxOptim
 
+res_dir = main_dir*"TCR-CD4 modeling/results/"
+
 #______________________________________________________________
 ##
 # load data
-data_dir = "C:/Users/stravaglino3/Documents/TCR-MHC-CD4 models/TCR_CD4_project/dissociation data/"
+data_dir = main_dir*"TCR-CD4 modeling/dissociation data/"
 
 # load bead data
 # new bead-bead data from Kaitao combined with Muaz data
@@ -31,15 +35,12 @@ tmc_b_thrml = delete_missing(thermal_b[:,13:14])[1]
 # # cm_b = combined_bootstrap_dataset(cm_b, 20)
 # tmc_b = combined_bootstrap_dataset([tmc_b.F,tmc_b.t], 30)
 
-# tm_b_combined = [vcat(tm_b[1],zeros(size(tm_b_thrml))), vcat(tm_b[2],tm_b_thrml)]
-# cm_b_combined = [vcat(cm_b.F,zeros(size(cm_b_thrml))), vcat(cm_b.t,cm_b_thrml)]
-# tmc_b_combined = [vcat(tmc_b[1],zeros(size(tmc_b_thrml))), vcat(tmc_b[2],tmc_b_thrml)] 
-
-
+# combine 0 force thermal fluctuation data with >0 F-dependent dataset
 tm_b_combined = [vcat(tm_b.F,zeros(size(tm_b_thrml))), vcat(tm_b.t,tm_b_thrml)]
 cm_b_combined = [vcat(cm_b.F,zeros(size(cm_b_thrml))), vcat(cm_b.t,cm_b_thrml)]
 tmc_b_combined = [vcat(tmc_b.F,zeros(size(tmc_b_thrml))), vcat(tmc_b.t,tmc_b_thrml)] 
-i_outl = findmax(tmc_b_combined[2])[2]
+
+i_outl = findmax(tmc_b_combined[2])[2] # delete very high outlier
 tmc_b_combined[1] = deleteat!(tmc_b_combined[1], i_outl)
 tmc_b_combined[2] = deleteat!(tmc_b_combined[2], i_outl)
 
@@ -69,11 +70,9 @@ plot(h1,h2,h3)
 
 #______________________________________________________________
 ## BINNING
-# edges=[0,10,17.5,22.5,28,33,45]
-# edges=[0,11.,19,26.5,34.,42]
-edges=[0,11,19,23,30,33.,45]
-edges=[0,11,19,22.5,29,33.,45]
 
+# edges=[0,11,19,23,30,33.,45]
+edges=[0,11,19,22.5,29,33.,45]
 # edges=nothing
 TM_B = bootstrap_bins([tm_b_no_boot.F, tm_b_no_boot.t],6,300;bin_type="force",edges=edges) # [ΓΕ.F, ΓΕ.t]
 plot()
@@ -81,67 +80,9 @@ clr=:blue; p1 = plot_F_vs_t(TM_B)
 CM_B = bootstrap_bins([cm_b_no_boot.F, cm_b_no_boot.t],6,300;bin_type="force",edges=nothing) # [ΓΕ.F, ΓΕ.t]
 clr=:red; p1 = plot_F_vs_t(CM_B)
 edges=[0,8,13,17.5,22.5,27,33,45]
-# edges = [  0,6,13,17.,22,26.5,31.,35.5,45]
-# edges=nothing
 TMC_B = bootstrap_bins([tmc_b_no_boot.F, tmc_b_no_boot.t],8,300;bin_type="force",edges=edges) # [ΓΕ.F, ΓΕ.t]
 clr=:green; p1 = plot_F_vs_t(TMC_B)
 # plot!(0:40,mean_t_tmc_b,lw=5,c=:green,label="TCR-MHC-CD4")
-
-#_________________________________________________________
-## fit TCR-MHC catch bond
-
-# u₀ = [] # don't provide initial states
-# u₀_type = "equilibrium" # calculate initial states based on equilibrium
-# # u₀_type = "detailed_balance" # calculate initial states based on equilibrium
-# tspan = (0.0,50)
-# kf_tm = 1/mean(tm_b_thrml)
-# model = bimolecular_diss_bell!
-# M_tm_b  = M(model,u₀,u₀_type,tspan,[],[kf_tm],0.0,Rodas5)
-
-# pinit = [     0.01,
-#           0.1, 0.1,
-#           1.0, 0.1,
-#         100.0, 1.0]
-
-# bounds = [       (0.,10.),
-#         (0.,10.),(0.,10.),
-#         (0.,10.),(0.,10.),
-#         (0.,100.),(0.,10.)]
-
-# @time mle_loss(pinit, tm_b, M_tm_b)
-
-# model = two_state_catch_bond_analytical_w_cons
-# M_tm_b  = M(model,u₀,u₀_type,tspan,[],[kf_tm],0.0,Rodas5)
-# @time mle_loss(pinit, tm_b, M_tm_b)
-
-# using Random
-# Random.seed!(3)
-
-# @time res_tm_b = mle_fit(M_tm_b,tm_b,bounds)
-# ks_tm_b = res_tm_b.rates
-# σ_tm_b = hessian2σ(res_tm_b.hes)
-# @show k_tm_b = ks_tm_b .± σ_tm_b
-
-# u₀tm_b = initial_u(ks_tm_b,M_tm_b)
-# res_dir = "C:/Users/stravaglino3/Documents/TCR-MHC-CD4 models/TCR_CD4_project/results/"
-# # CSV.write(res_dir*"k_γϵ.csv", rates2Df(k_γϵ))
-
-# # plotly()
-# plot()
-# tm_b_M_w_uncert = M(model,u₀,u₀_type,tspan,[],[kf_tm],0.0,Rodas5)
-# mean_t_tm_b = mean_ft_fit_analytical_2(tm_b_M_w_uncert,k_tm_b,tm_b,F_max=40.,t_max=100.)
-# mean_t_tm_b = map(t->Measurement(t), mean_t_tm_b)
-# plot!(0:40,mean_t_tm_b,lw=5,c=:blue,label="TCR-MHC")
-# clr = :blue
-# plot_F_vs_t(TM_B)
-
-# tm_b_M_w_uncert = M(two_state_catch_bond_ana_matlab,u₀,u₀_type,tspan,[],[],0.0,Rodas5)
-# mean_t_tm_b = mean_ft_fit_analytical_2(tm_b_M_w_uncert,ks_tm_b,tm_b,F_max=40.,t_max=100.)
-# mean_t_tm_b = map(t->Measurement(t), mean_t_tm_b)
-# plot!(0:40,mean_t_tm_b,lw=5,c=:red,linestyle=:dash,label="TCR-MHC")
-
-# tm_b_M_w_uncert = M(bimolecular_diss_bell!,u₀,u₀_type,tspan,[],[],0.0,Rodas5)
-# plot_mean_ft_fit(tm_b_M_w_uncert,ks_tm_b,tm_b,TM_B;species="TCR-MHC-CD4")
 
 
 #_________________________________________________________
@@ -179,7 +120,6 @@ ks_tm_b = res_tm_b.rates
 @show k_tm_b = ks_tm_b .± σ_tm_b
 
 u₀tm_b = initial_u(ks_tm_b,M_tm_b)
-res_dir = "C:/Users/stravaglino3/Documents/TCR-MHC-CD4 models/TCR_CD4_project/results/"
 # CSV.write(res_dir*"k_γϵ.csv", rates2Df(k_γϵ))
 
 # plotly()
@@ -235,120 +175,6 @@ plot!(0:40,mean_t_cm_b,lw=5,c=:red,label="CD4-MHC")
 clr = :red
 plot_F_vs_t(CM_B)
 
-#_________________________________________________________________________________________________________________________________
-# ## fit TCR-MHC-CD4 catch bond
-
-# u₀ = [0.6,0.0,0.4] # don't provide initial states
-# # u₀ = [0.6,0.0,0.4] # don't provide initial states
-# u₀_type = [] # calculate initial states based on equilibrium
-# # u₀_type = "detailed_balance" # calculate initial states based on equilibrium
-# tspan = (0.0,15)
-
-# model = tri_diss_bell_a!
-# M_tmc_b  = M(model,u₀,u₀_type,tspan,[],ks_tm_b,0.0,Rodas5)
-
-# pinit = [0.01, 0.1,
-#             1, 0.1]
-
-# bounds = [(0.,10.),(0.,10.),
-#         (0.,10.),(0.,10.)]
-
-# @time mle_loss(pinit, tmc_b, M_tmc_b)
-
-# @time res_tmc_b = mle_fit(M_tmc_b,tmc_b,bounds)
-# ks_tmc_b = res_tmc_b.rates
-# σ_tmc_b = hessian2σ(res_tmc_b.hes)
-# @show k_tmc_b = ks_tmc_b .± σ_tmc_b
-
-# # sols_tmc = plot_ft_fit(M_tmc_b,pinit,tmc_b)
-# # plot(Fs,mean_lifetime.(sols_γϵ),ylabel="<t>",xlabel="F",title="γϵ")
-# # plot_F_vs_t(clean_dissociation_data(γϵ_binned))
-
-# # model = bimolecular_diss_bell_activated_state_w_cons!
-# # γϵ_ft_M = M(model,u₀,u₀_type,tspan,[],[k₋ᵒf_γϵ],0.0,Rodas5)
-# plot(); color = :blue
-# # plot_ft_fit(γϵ_ft_M,ks_γϵ,γϵ)
-# plot_mean_ft_fit(M_tmc_b,pinit,tmc_b,TMC_B;species="TCR-MHC-CD4")
-
-# ##________________________________________________________________________________
-# trimolecular_catch_ana_matlab
-# p_tri = 0.4
-# u₀ = [(1-p_tri)*u₀tm_b; p_tri] # don't provide initial states
-
-# # calculate initial states based on equilibrium
-# # u₀_type = "detailed_balance" # calculate initial states based on equilibrium
-# tspan = (0.0,15)
-
-# model = trimolecular_catch_ana_matlab
-# M_tmc_b  = M(model,u₀,u₀_type,tspan,[],ks_tm_b,0.0,Rodas5)
-
-# pinit = [100, 0.01]
-
-# bounds = [(0.,100.),(0.,10.)]
-
-# @time mle_loss(pinit, tmc_b, M_tmc_b)
-
-# @time res_tmc_b = mle_fit(M_tmc_b,tmc_b,bounds)
-# ks_tmc_b = res_tmc_b.rates
-# σ_tmc_b = hessian2σ(res_tmc_b.hes)
-# @show k_tmc_b = ks_tmc_b .± σ_tmc_b
-
-# tmc_b_M_w_uncert = M(model,u₀,u₀_type,tspan,[],ks_tm_b,0.0,Rodas5)
-# mean_t_tmc_b = mean_ft_fit_analytical_2(tm_cb_M_w_uncert,ks_tmc_b,tmc_b,F_max=35.,t_max=100.)
-# mean_t_tmc_b = map(t->Measurement(t), mean_t_tmc_b)
-# plot!(0:35,mean_t_tmc_b,lw=5,c=:blue,label="CD4-MHC")
-# clr = :blue
-# plot_F_vs_t(TMC_B)
-
-# ##______________________________________________________________
-
-# trimolecular_2_species_indep_catch_analytical
-# p_tri = 0.96
-# # u₀ = [(1-p_tri)*u₀tm_b; p_tri] # don't provide initial states
-# u₀_mix = [(1-p_tri), p_tri]
-# u₀ = [u₀tm_b; 0.; 0.] # don't provide initial states
-
-# u₀_type = "equilibrium" # calculate initial states based on equilibrium
-# # u₀_type = "detailed_balance" # calculate initial states based on equilibrium
-# tspan = (0.0,15)
-
-# model = trimolecular_2_species_indep_catch_analytical
-# M_tmc_b  = M(model,u₀,u₀_type,tspan,[],ks_tm_b,0.0,Rodas5)
-
-# pinit = [10.0, 0.01,
-#           0.1, 0.1,
-#           1.0, 0.1,
-#          10.0, 1.0]
-
-# bounds = [(1.,10.),(0.,1e-5),
-#         (0.,10.),(0.,1.),
-#         (1.,10.),(0.,1.),
-#         (0.,100.),(0.,10.)]
-
-# @time mle_loss(pinit, tmc_b, M_tmc_b)
-
-# @time res_tmc_b = mle_fit(M_tmc_b,tmc_b,bounds)
-# ks_tmc_b = res_tmc_b.rates
-# σ_tmc_b = hessian2σ(res_tmc_b.hes)
-# @show k_tmc_b = ks_tmc_b .± σ_tmc_b
-
-# pinit = [ 7, 0.,
-#         0.07,0.388,
-#         5.5,0.1,
-#         50,1.2]
-        
-# # ks_tmc_b[5] = 0.
-# tmc_b_M_w_uncert = M(model,u₀,u₀_type,tspan,[],ks_tm_b,0.0,Rodas5)
-# mean_t_tmc_b = mean_ft_fit_analytical_2(tmc_b_M_w_uncert,k_tmc_b,tmc_b,F_max=40.,t_max=100.)
-# # mean_t_tmc_b = mean_ft_fit_analytical_2(tmc_b_M_w_uncert,pinit,tmc_b,F_max=40.,t_max=100.)
-
-# mean_t_tmc_b = map(t->Measurement(t), mean_t_tmc_b)
-# plot!(0:40,mean_t_tmc_b,lw=5,c=:green,label="TCR-MHC-CD4")
-# clr = :green
-# plot_F_vs_t(TMC_B)
-
-# plot()
-
 
 
 #_____________________________________________________
@@ -367,15 +193,6 @@ pinit = [ 6, 0.,
         4,0.05,
         30,0.8]
 
-# bounds = [(1.,10.),(0.,1e-5),
-#         (0.,1.),(0.,1.),
-#         (2.,10.),(0.,1),
-#         (0.,100.),(0.,1)]
-
-# bounds = [(1.,10.),(0.,10),
-#         (0.,1.),(0.,10.),
-#         (1.,10.),(0.,10),
-#         (0.,100.),(0.,10)]
 bounds = [(1.,10.),(0.,10),
         (0.,0.05),(0.,10.),
         (0.,10.),(0.,10),
@@ -388,7 +205,7 @@ ks_tmc_b = res_tmc_b.rates
 @show k_tmc_b = ks_tmc_b .± σ_tmc_b
 
         
-ks_tmc_b[3] = 0.045
+# ks_tmc_b[3] = 0.045
 tmc_b_M_w_uncert = M(model,u₀,u₀_type,tspan,[],ks_tm_b,0.0,Rodas5)
 mean_t_tmc_b = mean_ft_fit_analytical_2(tmc_b_M_w_uncert,k_tmc_b,tmc_b,F_max=40.,t_max=100.)
 # mean_t_tmc_b = mean_ft_fit_analytical_2(tmc_b_M_w_uncert,pinit,tmc_b,F_max=40.,t_max=100.)
@@ -504,7 +321,7 @@ CSV.write(res_dir*"k_tmc_b.csv", rates2Df(k_tmc_b))
 
 
 
-figures_dir = "C:/Users/stravaglino3/Documents/TCR-MHC-CD4 models/TCR_CD4_project/figures/"
+figures_dir = main_dir*"TCR-CD4 modeling/figures/"
 pyplot()
 plot()
 # Plots.scalefontsizes(1/2)
@@ -662,6 +479,13 @@ end
 # pyplot()
 # plotly()
 # plot()
+
+
+tmc_b_M_num = M(bimolecular_diss_bell!,u₀,u₀_type,tspan,[],ks_tm_b,0.0,Rodas5)
+plot_mean_ft_fit(tmc_b_M_num,k_tmc_b,tmc_b,TMC_B;species="TCR-MHC-CD4")
+tm_b_M_num = M(bimolecular_diss_bell!,u₀,u₀_type,tspan,[],[],0.0,Rodas5)
+plot_mean_ft_fit(tm_b_M_num,k_tm_b,tm_b,TM_B;species="TCR-MHC")
+
 Plots.scalefontsizes(2)
 plot_P_act_v_t(tmc_b_M_num,ks_tmc_b,tmc_b,TMC_B;species=["τ_weak" "τ_strong"])
 # savefig(figures_dir*"P_activated_TMC.png"); savefig(figures_dir*"P_activated_TMC.svg")
@@ -672,7 +496,7 @@ plot_P_act_v_t(tm_b_M_num,ks_tm_b,tm_b,TM_B;species=["τ_weak" "τ_strong"])
 
 function plot_Proportion_act_v_t(M,k,data,binned;species=[],dt=0.01,dF=0.5)
 
-        ts = collect(0.:0.001:1)
+        ts = collect(0.:0.01:1)
         # ts = collect(0:0.01:3.0)
 
 
@@ -744,84 +568,32 @@ function plot_Proportion_act_v_t(M,k,data,binned;species=[],dt=0.01,dF=0.5)
         # ylabel!("Proportion_strong = P(strong)/P(weak+strong)")
         # ylims!((0,3))
         # Plots.scalefontsizes(1/2)
-        return plt
+        return plt, ratios
 end
 
 pyplot()
 Plots.scalefontsizes(1/2)
 Plots.scalefontsizes(1.8)
-plot_Proportion_act_v_t(tm_b_M_num,ks_tm_b,tm_b,TM_B;species=["τ_weak" "τ_strong"])
-savefig(figures_dir*"Proportion_activated_TM.png"); savefig(figures_dir*"Proportion_activated_TM.svg")
+plt_tm, P_activated_v_F_and_t_tm = plot_Proportion_act_v_t(tm_b_M_num,ks_tm_b,tm_b,TM_B;species=["τ_weak" "τ_strong"])
+plt_tm
+# savefig(figures_dir*"Proportion_activated_TM.png"); savefig(figures_dir*"Proportion_activated_TM.svg")
 
-plot_Proportion_act_v_t(tmc_b_M_num,ks_tmc_b,tmc_b,TMC_B;species=["τ_weak" "τ_strong"])
-savefig(figures_dir*"Proportion_activated_TMC.png"); savefig(figures_dir*"Proportion_activated_TMC.svg")
-
-
-
-tmc_b_M_num = M(bimolecular_diss_bell!,u₀,u₀_type,tspan,[],ks_tm_b,0.0,Rodas5)
-plot_mean_ft_fit(tmc_b_M_num,k_tmc_b,tmc_b,TMC_B;species="TCR-MHC-CD4")
-tm_b_M_num = M(bimolecular_diss_bell!,u₀,u₀_type,tspan,[],[],0.0,Rodas5)
-plot_mean_ft_fit(tm_b_M_num,k_tm_b,tm_b,TM_B;species="TCR-MHC")
+plt_tmc, P_activated_v_F_and_t_tmc = plot_Proportion_act_v_t(tmc_b_M_num,ks_tmc_b,tmc_b,TMC_B;species=["τ_weak" "τ_strong"])
+plt_tmc
+# savefig(figures_dir*"Proportion_activated_TMC.png"); savefig(figures_dir*"Proportion_activated_TMC.svg")
 
 
 
+P_activated_v_F_and_t_tm = reduce(hcat,P_activated_v_F_and_t_tm)
+P_activated_v_F_and_t_tmc = reduce(hcat,P_activated_v_F_and_t_tmc)
 
+CSV.write(res_dir*"P_activated_v_F_and_t_tm.csv",P_activated_v_F_and_t_tm)
+CSV.write(res_dir*"P_activated_v_F_and_t_tmc.csv",P_activated_v_F_and_t_tmc) 
 
+using Tables
 
+CSV.write(res_dir*"P_activated_v_F_and_t_tm.csv", 
+                DataFrame(P_activated_v_F_and_t_tm, :auto))
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# tmp_sol = ftsolve(tmc_b_M_num,ks_tmc_b,0,0:0.1:5)[1]
-# plot(tmp_sol)
-# tmp_t = tmp_sol.t
-# _du = tmp_sol(tmp_t, Val{1}) 
-# du = [_du[i,:] for i in 1:size(_du)[1]]
-# # tmp_t = 0:0.1:10 
-# int_1 = integrate(tmp_t,-tmp_t .* du[1])
-# int_2 = integrate(tmp_t,-tmp_t .* du[2])
-# int_1 = integrate(tmp_t,-du[1])
-# int_2 = integrate(tmp_t,-du[2])
-# int_2 / (int_1+int_2)
-# plot(tmp_t,-du)
-# ##
-
-# scatter!(0:40,0:0.01:0.4,c=:white,markerstrokealpha=0)
-
-
-# plot!(0:40,sum(mean_each_species,dims=2),lw=5,c=:green,label="Σ")
-# plot!(0:0.1:40,s_w_tmc_b .* 0.6,lw=5, label="ka/k₋a (TCR-MHC-CD4)")
-    
-# CSV.write(res_dir*"strong_state_proportion.csv", measurements2Df(0:0.1:40,s_w_tmc_b;labels=["strong_proportion","std"]))    
-# CSV.write(res_dir*"lftm_each_species.csv", DataFrame(F=0:40,τ_weak=mean_each_species[:,1],τ_strong=mean_each_species[:,2]) )
-
-# lftm_weak = 1 ./ (rates_tmc_b_by_F.k₋f + rates_tmc_b_by_F.ka)
-# lftm_strong = 1 ./ (rates_tmc_b_by_F.k₋s + rates_tmc_b_by_F.k₋a)
-
-# plot(0:0.1:40, lftm_weak, lw=5, label = "1/(k₋f + ka)")
-# plot!(0:0.1:40, lftm_strong, lw=5, label = "1/(k₋s + k₋a)")
-
-# DataFrame(F=collect(0:40) ,τ_weak=mean_each_species[:,1])
-
-
-# includet(m)
-# Fs = [0,7,13,20]
-
-# plot()
-# lnps_tmc,bins_tmc,p_tmc_ = survival_multiple_bins(tmc_b_M,ks_tmc,TMC_B; Fs=Fs, t_max=10, dt=0.1, clr=:blue) # [ΓΕ.F, ΓΕ.t]
-# plot(p_tmc_)
-# ylims!((-6,0))
-# ylims!((0,1))
+CSV.write(res_dir*"P_activated_v_F_and_t_tmc.csv", 
+                DataFrame(P_activated_v_F_and_t_tmc, :auto))
